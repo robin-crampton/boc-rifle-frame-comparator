@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BoC rifle frame comparator</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #0a0a0a;
+      color: #b0b0b0;
+      font-family: 'IBM Plex Mono', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+    }
+
+    h1 {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #555;
+      margin-bottom: 12px;
+      text-align: center;
+      padding: 0 8px;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      width: 640px;
+      height: 480px;
+      background: #111;
+      border: 1px solid #333;
+      overflow: hidden;
+      cursor: grab;
+      max-width: 100%;
+    }
+
+    .canvas-wrap:active {
+      cursor: grabbing;
+    }
+
+    .canvas-wrap img {
+      position: absolute;
+      top: 0;
+      left: 0;
+      user-select: none;
+      -webkit-user-drag: none;
+      pointer-events: none;
+    }
+
+    #img-base {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    #img-overlay {
+      transform-origin: 0 0;
+      width: 100%;
+    }
+
+    .strip {
+      width: 640px;
+      max-width: 100%;
+      margin-top: 10px;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      overflow-x: auto;
+      padding: 4px 8px;
+    }
+
+    .strip::-webkit-scrollbar {
+      height: 4px;
+    }
+
+    .strip::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 2px;
+    }
+
+    .thumb {
+      width: 80px;
+      height: 60px;
+      object-fit: cover;
+      border: 2px solid #333;
+      cursor: pointer;
+      flex-shrink: 0;
+      opacity: .6;
+      transition: all .15s;
+    }
+
+    .thumb:hover {
+      opacity: .9;
+      border-color: #666;
+    }
+
+    .thumb.active {
+      border-color: #e44;
+      opacity: 1;
+    }
+
+    .add-btn {
+      width: 80px;
+      height: 60px;
+      flex-shrink: 0;
+      background: #151515;
+      border: 2px dashed #444;
+      color: #555;
+      font-size: 24px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .15s;
+    }
+
+    .add-btn:hover {
+      border-color: #888;
+      color: #999;
+    }
+
+    .controls {
+      width: 640px;
+      max-width: 100%;
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      padding: 0 8px;
+    }
+
+    .control-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .control-row label {
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #555;
+      width: 64px;
+      flex-shrink: 0;
+    }
+
+    .control-row input[type='range'] {
+      flex: 1;
+      accent-color: #e44;
+      height: 2px;
+      min-width: 0;
+    }
+
+    .control-row .val {
+      font-size: 10px;
+      color: #777;
+      width: 44px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .control-row .val.offset {
+      flex: 1;
+      width: auto;
+      text-align: left;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      background: #1a1a1a;
+      color: #999;
+      border: 1px solid #333;
+      padding: 4px 10px;
+      font-family: inherit;
+      font-size: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all .15s;
+    }
+
+    button:hover {
+      background: #222;
+      color: #fff;
+      border-color: #555;
+    }
+
+    button.active {
+      background: #e44;
+      color: #fff;
+      border-color: #e44;
+    }
+
+    .hint {
+      font-size: 9px;
+      color: #3a3a3a;
+      margin-top: 4px;
+      letter-spacing: 1px;
+    }
+
+    .frame-label {
+      font-size: 10px;
+      color: #555;
+      margin-top: 6px;
+      letter-spacing: 1px;
+      padding: 0 8px;
+    }
+
+    #file-input {
+      display: none;
+    }
+
+    @media (max-width: 672px) {
+      .canvas-wrap {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 4 / 3;
+      }
+
+      h1 {
+        font-size: 10px;
+        letter-spacing: 1px;
+      }
+
+      button {
+        padding: 6px 10px;
+        font-size: 9px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Boards of Canada NTSC VHS tape rifle frame comparator</h1>
+  <div class="canvas-wrap" id="canvas">
+    <img id="img-base" alt="BoC base">
+    <img id="img-overlay" alt="Comparison overlay">
+  </div>
+  <div class="strip" id="strip"></div>
+  <p class="frame-label" id="frame-label">No overlay selected</p>
+  <div class="controls">
+    <div class="control-row">
+      <label for="opacity">Opacity</label>
+      <input type="range" id="opacity" min="0" max="100" value="50">
+      <span class="val" id="opacity-val">50%</span>
+    </div>
+    <div class="control-row">
+      <label for="scale">Scale</label>
+      <input type="range" id="scale" min="50" max="300" value="275">
+      <span class="val" id="scale-val">275%</span>
+    </div>
+    <div class="control-row">
+      <label for="rotate">Rotate</label>
+      <input type="range" id="rotate" min="-180" max="180" value="0">
+      <span class="val" id="rotate-val">0°</span>
+    </div>
+    <div class="control-row">
+      <label>Offset</label>
+      <span class="val offset" id="offset-val">X: -84.2% Y: -25.4%</span>
+    </div>
+    <div class="btn-row">
+      <button class="blend-btn active" data-mode="normal">Normal</button>
+      <button class="blend-btn" data-mode="difference">Diff</button>
+      <button class="blend-btn" data-mode="multiply">Multiply</button>
+      <button class="blend-btn" data-mode="screen">Screen</button>
+      <button class="blend-btn" data-mode="overlay">Overlay</button>
+      <button class="blend-btn" data-mode="luminosity">Luma</button>
+    </div>
+    <div class="btn-row">
+      <button id="reset-btn">Reset Pos</button>
+      <button id="match-btn">Fit 640×480</button>
+      <button id="flip-h-btn">Flip H</button>
+      <button id="flip-v-btn">Flip V</button>
+      <button id="swap-btn">Swap Layers</button>
+    </div>
+    <p class="hint">
+      Drag overlay to reposition ·
+      Upload frames with the + button ·
+      Difference mode highlights mismatches
+    </p>
+  </div>
+  <input type="file" id="file-input" accept="image/*" multiple>
+  <script>
+    const BOC_FRAME_PATH = 'boards-of-canada-ntsc-vhs-tape-rifle-frame.png';
+    const PRELOADED_FRAMES = [
+      {
+        name: 'fear-is-the-master-1983-58m-14290ms',
+        src: 'fear-is-the-master-1983-58m-14290ms.png',
+      },
+    ];
+
+    const DEFAULT_SCALE = 275;
+    const DEFAULT_OX = -84.2;
+    const DEFAULT_OY = -25.4;
+
+    const imgBase = document.getElementById('img-base');
+    const imgOverlay = document.getElementById('img-overlay');
+    const canvas = document.getElementById('canvas');
+    const strip = document.getElementById('strip');
+    const frameLabel = document.getElementById('frame-label');
+    const offsetVal = document.getElementById('offset-val');
+    const fileInput = document.getElementById('file-input');
+
+    const frames = [...PRELOADED_FRAMES];
+    let activeIdx = 0;
+    let swapped = false;
+    let ox = DEFAULT_OX;
+    let oy = DEFAULT_OY;
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startOx = 0;
+    let startOy = 0;
+    let flipH = false;
+    let flipV = false;
+
+    function setBase() {
+      const frameSrc = frames[activeIdx] ? frames[activeIdx].src : '';
+      if (swapped) {
+        imgBase.src = frameSrc;
+        imgOverlay.src = BOC_FRAME_PATH;
+      } else {
+        imgBase.src = BOC_FRAME_PATH;
+        imgOverlay.src = frameSrc;
+      }
+    }
+
+    function buildStrip() {
+      strip.innerHTML = '';
+      frames.forEach((frame, i) => {
+        const img = document.createElement('img');
+        img.src = frame.src;
+        img.className = 'thumb' + (i === activeIdx ? ' active' : '');
+        img.title = frame.name;
+        img.addEventListener('click', () => {
+          activeIdx = i;
+          buildStrip();
+          setBase();
+          frameLabel.textContent = frame.name;
+        });
+        strip.appendChild(img);
+      });
+      const addBtn = document.createElement('div');
+      addBtn.className = 'add-btn';
+      addBtn.textContent = '+';
+      addBtn.title = 'Upload frames';
+      addBtn.addEventListener('click', () => fileInput.click());
+      strip.appendChild(addBtn);
+    }
+
+    function updateOverlay() {
+      const scale = document.getElementById('scale').value / 100;
+      const rotate = document.getElementById('rotate').value;
+      const opacity = document.getElementById('opacity').value / 100;
+      const fh = flipH ? -1 : 1;
+      const fv = flipV ? -1 : 1;
+      const px = ox / 100 * canvas.clientWidth;
+      const py = oy / 100 * canvas.clientHeight;
+      imgOverlay.style.opacity = opacity;
+      imgOverlay.style.transform =
+          `translate(${px}px, ${py}px) ` +
+          `scale(${scale * fh}, ${scale * fv}) ` +
+          `rotate(${rotate}deg)`;
+      offsetVal.textContent = `X: ${ox.toFixed(1)}% Y: ${oy.toFixed(1)}%`;
+    }
+
+    function startDrag(clientX, clientY) {
+      dragging = true;
+      startX = clientX;
+      startY = clientY;
+      startOx = ox;
+      startOy = oy;
+    }
+
+    function moveDrag(clientX, clientY) {
+      if (!dragging) {
+        return;
+      }
+      ox = startOx + (clientX - startX) / canvas.clientWidth * 100;
+      oy = startOy + (clientY - startY) / canvas.clientHeight * 100;
+      updateOverlay();
+    }
+
+    function endDrag() {
+      dragging = false;
+    }
+
+    fileInput.addEventListener('change', (e) => {
+      Array.from(e.target.files).forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          frames.push({
+            name: file.name.replace(/\.[^.]+$/, ''),
+            src: ev.target.result,
+          });
+          activeIdx = frames.length - 1;
+          buildStrip();
+          setBase();
+          frameLabel.textContent = frames[activeIdx].name;
+        };
+        reader.readAsDataURL(file);
+      });
+      fileInput.value = '';
+    });
+
+    canvas.addEventListener('mousedown', (e) => {
+      startDrag(e.clientX, e.clientY);
+    });
+    window.addEventListener('mousemove', (e) => {
+      moveDrag(e.clientX, e.clientY);
+    });
+    window.addEventListener('mouseup', endDrag);
+
+    canvas.addEventListener('touchstart', (e) => {
+      const t = e.touches[0];
+      startDrag(t.clientX, t.clientY);
+      e.preventDefault();
+    }, {passive: false});
+    window.addEventListener('touchmove', (e) => {
+      const t = e.touches[0];
+      moveDrag(t.clientX, t.clientY);
+    });
+    window.addEventListener('touchend', endDrag);
+
+    ['opacity', 'scale', 'rotate'].forEach((id) => {
+      const el = document.getElementById(id);
+      const val = document.getElementById(id + '-val');
+      el.addEventListener('input', () => {
+        const suffix = id === 'rotate' ? '°' : '%';
+        val.textContent = el.value + suffix;
+        updateOverlay();
+      });
+    });
+
+    document.querySelectorAll('.blend-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.blend-btn').forEach((b) => {
+          b.classList.remove('active');
+        });
+        btn.classList.add('active');
+        imgOverlay.style.mixBlendMode = btn.dataset.mode;
+      });
+    });
+
+    document.getElementById('swap-btn').addEventListener('click', () => {
+      swapped = !swapped;
+      setBase();
+    });
+
+    document.getElementById('reset-btn').addEventListener('click', () => {
+      ox = DEFAULT_OX;
+      oy = DEFAULT_OY;
+      flipH = false;
+      flipV = false;
+      const defaults = {opacity: 50, scale: DEFAULT_SCALE, rotate: 0};
+      Object.entries(defaults).forEach(([id, value]) => {
+        const el = document.getElementById(id);
+        el.value = value;
+        const suffix = id === 'rotate' ? '°' : '%';
+        document.getElementById(id + '-val').textContent = el.value + suffix;
+      });
+      imgOverlay.style.width = '';
+      imgOverlay.style.height = '';
+      updateOverlay();
+    });
+
+    document.getElementById('match-btn').addEventListener('click', () => {
+      imgOverlay.style.width = '640px';
+      imgOverlay.style.height = '480px';
+      updateOverlay();
+    });
+
+    document.getElementById('flip-h-btn').addEventListener('click', () => {
+      flipH = !flipH;
+      updateOverlay();
+    });
+
+    document.getElementById('flip-v-btn').addEventListener('click', () => {
+      flipV = !flipV;
+      updateOverlay();
+    });
+
+    // Init.
+    imgBase.src = BOC_FRAME_PATH;
+    buildStrip();
+    if (frames.length) {
+      activeIdx = 0;
+      setBase();
+      frameLabel.textContent = frames[0].name;
+    }
+    updateOverlay();
+  </script>
+</body>
+</html>
